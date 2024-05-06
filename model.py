@@ -102,15 +102,17 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
         for epoch in range(num_epochs):
             print(f'Epoch {epoch+1}/{num_epochs}')
             total_loss = 0
+            total_count = 0
             classifier.train()
             train_iter = tqdm(train_loader)
             for input_ids, attention_mask, *level_annotation_ids in train_iter:
                 optimizer.zero_grad()
                 loss = sum([criterion(output, labels) for output, labels in zip(classifier(input_ids, attention_mask), level_annotation_ids)])
                 total_loss += loss.item()
+                total_count += input_ids.size(0) * 4
                 loss.backward()
                 optimizer.step()
-                train_iter.set_description(f'Loss: {total_loss:.4f}')
+                train_iter.set_description(f'Loss: {total_loss / float(total_count):.4f}')
                 
 
         classifier.eval()
