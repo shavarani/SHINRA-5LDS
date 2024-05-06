@@ -85,7 +85,7 @@ class Classifier(nn.Module):
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
         last_hidden_state = outputs.last_hidden_state
         pooled_output = last_hidden_state[:, 0, :]
-        x = [torch.where(layer(pooled_output) < self.threshold, torch.tensor(0).to(device), torch.tensor(1).to(device))
+        x = [torch.where(layer(pooled_output) < self.threshold, torch.FloatTensor(0).to(device), torch.FloatTensor(1).to(device))
              for layer in self.affine_layers]
         return x
 
