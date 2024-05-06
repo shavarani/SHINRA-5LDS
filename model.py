@@ -76,16 +76,22 @@ class Classifier(nn.Module):
                 nn.ReLU(),
                 nn.Linear(affine_mid_layer_size, len(ene_vocab[i])),
                 # nn.Linear(self.transformer.config.hidden_size, len(ene_vocab[i])),
-                nn.Threshold(threshold, 0)
+                # nn.Threshold(threshold, 0)
             ) for i in range(4)
         ])
+        self.threshold = threshold
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, input_ids, attention_mask):
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
         last_hidden_state = outputs.last_hidden_state
         pooled_output = last_hidden_state[:, 0, :]
-        x = [torch.sign(layer(pooled_output)) for layer in self.affine_layers]
+        x = [layer(pooled_output) for layer in self.affine_layers]
         return x
+
+    def inference(self, input_ids, attention_mask):
+        with torch.no_grad():
+            return [(self.sigmoid(x) > self.threshold).float() for x in self.forward(input_ids, attention_mask)]
 
 def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -132,7 +138,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
         print('Validation at the end of the fold ...')
         with torch.no_grad():
             for val_id, (input_ids, attention_mask, *level_annotation_ids) in enumerate(val_loader):
-                for level_id, (output, labels) in enumerate(zip(classifier(input_ids, attention_mask), level_annotation_ids)):
+                for level_id, (output, labels) in enumerate(zip(classifier.inference(input_ids, attention_mask), level_annotation_ids)):
                     # output = output > membership_threshold
                     total[level_id] += labels.count_nonzero().item()
                     predicted = (output * labels).bool()
