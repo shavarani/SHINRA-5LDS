@@ -64,7 +64,7 @@ class TextClassificationDataset(Dataset):
         return input_ids, attention_mask, *level_annotation_ids
     
 class Classifier(nn.Module):
-    def __init__(self, model_name, freeze_encoder=False, threshold=0.5):
+    def __init__(self, model_name, freeze_encoder=False, threshold=0.5, affine_mid_layer_size=256):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model_name)
         if freeze_encoder:
@@ -72,10 +72,10 @@ class Classifier(nn.Module):
                 param.requires_grad = False
         self.affine_layers = nn.ModuleList([
             nn.Sequential(
-                #nn.Linear(self.transformer.config.hidden_size, 512),
-                #nn.ReLU(),
-                #nn.Linear(512, len(ene_vocab[i])),
-                nn.Linear(self.transformer.config.hidden_size, len(ene_vocab[i])),
+                nn.Linear(self.transformer.config.hidden_size, affine_mid_layer_size),
+                nn.ReLU(),
+                nn.Linear(affine_mid_layer_size, len(ene_vocab[i])),
+                # nn.Linear(self.transformer.config.hidden_size, len(ene_vocab[i])),
                 nn.Threshold(threshold, 0)
             ) for i in range(4)
         ])
