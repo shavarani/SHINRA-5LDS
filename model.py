@@ -11,11 +11,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 
 from dataset import SHINRA5LDS
 
-def example():
-    for article, annotation in tqdm(SHINRA5LDS('SHINRA-5LDS.zip', lang='en')):
-        print('='*80)
-        print(article.summary, annotation)
-        print('='*80)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 ene_vocab = {
     0 : {'IGNORED': 0, 'CONCEPT': 1, 'Numex': 2, 'Time_TOP': 3, 'Name': 4},
@@ -56,15 +52,15 @@ class TextClassificationDataset(Dataset):
             truncation=True,
             return_tensors='pt'
         )
-        level_annotation_ids = [torch.zeros(len(ene_vocab[0])), 
-                                torch.zeros(len(ene_vocab[1])), 
-                                torch.zeros(len(ene_vocab[2])), 
-                                torch.zeros(len(ene_vocab[3]))]
+        level_annotation_ids = [torch.zeros(len(ene_vocab[0])).to(device), 
+                                torch.zeros(len(ene_vocab[1])).to(device), 
+                                torch.zeros(len(ene_vocab[2])).to(device), 
+                                torch.zeros(len(ene_vocab[3])).to(device)]
         for label_level in range(4):
             level_annotations = [ene_vocab[label_level][x] for x in annotations[label_level]]
             level_annotation_ids[label_level][level_annotations] = 1
-        input_ids = inputs['input_ids'].squeeze()
-        attention_mask = inputs['attention_mask'].squeeze()
+        input_ids = inputs['input_ids'].squeeze().to(device)
+        attention_mask = inputs['attention_mask'].squeeze().to(device)
         return input_ids, attention_mask, *level_annotation_ids
     
 class Classifier(nn.Module):
@@ -86,7 +82,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     print('Pre-loading dataset ...')
     dataset = TextClassificationDataset(tokenizer, max_length, lang)
-    classifier = Classifier(model_name)
+    classifier = Classifier(model_name).to(device)
     skf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
     optimizer = optim.Adam(classifier.parameters(), lr=lr)
     criterion = nn.BCEWithLogitsLoss()
