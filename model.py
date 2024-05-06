@@ -85,8 +85,7 @@ class Classifier(nn.Module):
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
         last_hidden_state = outputs.last_hidden_state
         pooled_output = last_hidden_state[:, 0, :]
-        x = [torch.where(layer(pooled_output) < self.threshold, torch.FloatTensor(0).to(device), torch.FloatTensor(1).to(device))
-             for layer in self.affine_layers]
+        x = [(layer(pooled_output) > self.threshold).float() for layer in self.affine_layers]
         return x
 
 def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False):
