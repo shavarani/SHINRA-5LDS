@@ -76,16 +76,16 @@ class Classifier(nn.Module):
                 #nn.ReLU(),
                 #nn.Linear(512, len(ene_vocab[i])),
                 nn.Linear(self.transformer.config.hidden_size, len(ene_vocab[i])),
-                nn.Sigmoid()
+                nn.Sigmoid(),
+                nn.Threshold(threshold, 0)
             ) for i in range(4)
         ])
-        self.threshold = threshold
 
     def forward(self, input_ids, attention_mask):
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
         last_hidden_state = outputs.last_hidden_state
         pooled_output = last_hidden_state[:, 0, :]
-        x = [(layer(pooled_output) > self.threshold).float() for layer in self.affine_layers]
+        x = [torch.sign(layer(pooled_output)) for layer in self.affine_layers]
         return x
 
 def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False):
