@@ -116,7 +116,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
             train_iter = tqdm(train_loader)
             for input_ids, attention_mask, *level_annotation_ids in train_iter:
                 optimizer.zero_grad()
-                loss = sum([criterion(output > membership_threshold, labels) for output, labels in zip(classifier(input_ids, attention_mask), level_annotation_ids)])
+                loss = sum([criterion((output > membership_threshold).float(), labels) for output, labels in zip(classifier(input_ids, attention_mask), level_annotation_ids)])
                 total_loss += loss.item()
                 total_count += input_ids.size(0)
                 loss.backward()
