@@ -123,8 +123,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
                     correct[level_id] += torch.sum(predicted).item()
                     level_labels[level_id].extend(labels.view(-1).numpy())
                     level_predicted[level_id].extend(output.view(-1).numpy())
-                if val_id > 3:
-                    break
+
         print('Evaluation results at the end of the fold ...')
         for level_id in range(4):
             accuracy = correct[level_id] / total[level_id]
