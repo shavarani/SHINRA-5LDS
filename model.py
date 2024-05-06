@@ -128,8 +128,8 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
                     total[level_id] += labels.count_nonzero().item()
                     predicted = (output * labels).bool()
                     correct[level_id] += torch.sum(predicted).item()
-                    level_labels[level_id].extend(labels.view(-1).numpy())
-                    level_predicted[level_id].extend(output.view(-1).numpy())
+                    level_labels[level_id].extend(labels.view(-1).cpu().numpy())
+                    level_predicted[level_id].extend(output.view(-1).cpu().numpy())
 
         print('Evaluation results at the end of the fold ...')
         for level_id in range(4):
@@ -166,4 +166,4 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
 
 
 if __name__ == '__main__':
-    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5)
+    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=1, membership_threshold=0.5)
