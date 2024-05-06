@@ -134,9 +134,9 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
         print('Evaluation results at the end of the fold ...')
         for level_id in range(4):
             accuracy = correct[level_id] / total[level_id]
-            precision = precision_score(level_labels[level_id], level_predicted[level_id], average='macro')
-            recall = recall_score(level_labels[level_id], level_predicted[level_id], average='macro')
-            f1 = f1_score(level_labels[level_id], level_predicted[level_id], average='macro')
+            precision = precision_score(level_labels[level_id], level_predicted[level_id], average='macro', zero_division=0)
+            recall = recall_score(level_labels[level_id], level_predicted[level_id], average='macro', zero_division=0)
+            f1 = f1_score(level_labels[level_id], level_predicted[level_id], average='macro', zero_division=0)
 
             print(f'Level {level_id}:')
             print(f'\tAccuracy: {accuracy:.2f}')
