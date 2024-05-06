@@ -76,7 +76,6 @@ class Classifier(nn.Module):
                 #nn.ReLU(),
                 #nn.Linear(512, len(ene_vocab[i])),
                 nn.Linear(self.transformer.config.hidden_size, len(ene_vocab[i])),
-                nn.Sigmoid(),
                 nn.Threshold(threshold, 0)
             ) for i in range(4)
         ])
