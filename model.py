@@ -64,9 +64,12 @@ class TextClassificationDataset(Dataset):
         return input_ids, attention_mask, *level_annotation_ids
     
 class Classifier(nn.Module):
-    def __init__(self, model_name):
+    def __init__(self, model_name, freeze_encoder=False):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model_name)
+        if freeze_encoder:
+            for param in self.transformer.parameters():
+                param.requires_grad = False
         self.affine_layers = nn.ModuleList([
             nn.Sequential(
                 #nn.Linear(self.transformer.config.hidden_size, 512),
@@ -84,11 +87,11 @@ class Classifier(nn.Module):
         x = [layer(pooled_output) for layer in self.affine_layers]
         return x
 
-def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5):
+def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     print('Pre-loading dataset ...')
     dataset = TextClassificationDataset(tokenizer, max_length, lang)
-    classifier = Classifier(model_name).to(device)
+    classifier = Classifier(model_name, freeze_encoder=freeze_encoder).to(device)
     skf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
     optimizer = optim.Adam(classifier.parameters(), lr=lr)
     criterion = nn.BCEWithLogitsLoss()
@@ -113,7 +116,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
             train_iter = tqdm(train_loader)
             for input_ids, attention_mask, *level_annotation_ids in train_iter:
                 optimizer.zero_grad()
-                loss = sum([criterion(output, labels) for output, labels in zip(classifier(input_ids, attention_mask), level_annotation_ids)])
+                loss = sum([criterion(output > membership_threshold, labels) for output, labels in zip(classifier(input_ids, attention_mask), level_annotation_ids)])
                 total_loss += loss.item()
                 total_count += input_ids.size(0)
                 loss.backward()
@@ -172,4 +175,4 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
 
 
 if __name__ == '__main__':
-    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=1, membership_threshold=0.5)
+    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=1, membership_threshold=0.5, freeze_encoder=False)
