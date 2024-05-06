@@ -68,7 +68,13 @@ class Classifier(nn.Module):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model_name)
         self.affine_layers = nn.ModuleList([
-            nn.Sequential(nn.Linear(self.transformer.config.hidden_size, 512), nn.ReLU(), nn.Linear(512, len(ene_vocab[i])), nn.Sigmoid()) for i in range(4)
+            nn.Sequential(
+                #nn.Linear(self.transformer.config.hidden_size, 512),
+                #nn.ReLU(),
+                #nn.Linear(512, len(ene_vocab[i])),
+                nn.Linear(self.transformer.config.hidden_size, len(ene_vocab[i])),
+                nn.Sigmoid()
+            ) for i in range(4)
         ])
 
     def forward(self, input_ids, attention_mask):
