@@ -64,9 +64,11 @@ class TextClassificationDataset(Dataset):
         return input_ids, attention_mask, *level_annotation_ids
     
 class Classifier(nn.Module):
-    def __init__(self, model_name, freeze_encoder=False, threshold=0.5, affine_mid_layer_size=256):
+    def __init__(self, model_name, freeze_encoder=False, threshold=0.5, affine_mid_layer_size=256, load_pretrained_spel=False):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model_name)
+        if load_pretrained_spel:
+            self.load_checkpoint(model_name)
         if freeze_encoder:
             for param in self.transformer.parameters():
                 param.requires_grad = False
@@ -82,6 +84,32 @@ class Classifier(nn.Module):
         self.threshold = threshold
         self.sigmoid = nn.Sigmoid()
 
+    def load_checkpoint(self, model_name, device="cpu"):
+        if model_name == "roberta-large":
+            checkpoint = torch.hub.load_state_dict_from_url('https://vault.sfu.ca/index.php/s/BCvputD1ByAvILC/download',
+                                                            model_dir=".", map_location="cpu",
+                                                            file_name="spel-large-step-3-500K.pt")
+            self._load_from_checkpoint_object(checkpoint, device)
+        elif model_name == "roberta-base":
+            checkpoint = torch.hub.load_state_dict_from_url('https://vault.sfu.ca/index.php/s/8nw5fFXdz2yBP5z/download',
+                                                            model_dir=".", map_location="cpu",
+                                                            file_name="spel-base-step-3-500K.pt")
+        else:
+            raise ValueError(f"model not provided for {model_name}")
+        torch.cuda.empty_cache()
+        self.transformer.load_state_dict(checkpoint["bert_lm"], strict=False)
+        self.transformer.to(device)
+        self.disable_roberta_lm_head()
+        self.transformer.eval()
+
+    def disable_roberta_lm_head(self):
+        assert self.transformer is not None
+        self.transformer.lm_head.layer_norm.bias.requires_grad = False
+        self.transformer.lm_head.layer_norm.weight.requires_grad = False
+        self.transformer.lm_head.dense.bias.requires_grad = False
+        self.transformer.lm_head.dense.weight.requires_grad = False
+        self.transformer.lm_head.decoder.bias.requires_grad = False
+
     def forward(self, input_ids, attention_mask):
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
         last_hidden_state = outputs.last_hidden_state
@@ -93,13 +121,11 @@ class Classifier(nn.Module):
         with torch.no_grad():
             return [(self.sigmoid(x) > self.threshold).float() for x in self.forward(input_ids, attention_mask)]
 
-def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False):
+def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     print('Pre-loading dataset ...')
     dataset = TextClassificationDataset(tokenizer, max_length, lang)
-    classifier = Classifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold).to(device)
     skf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
-    optimizer = optim.Adam(classifier.parameters(), lr=lr)
     criterion = nn.BCEWithLogitsLoss()
 
     accuracies = [[] for _ in range(4)]
@@ -109,6 +135,9 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
 
     for fold, (train_idx, val_idx) in enumerate(skf.split(range(len(dataset)))):
         print(f'Fold {fold+1}/{k_folds} ...')
+        # Classifier must start fresh in each fold
+        classifier = Classifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=False).to(device)
+        optimizer = optim.Adam(classifier.parameters(), lr=lr)
         train_sampler = SubsetRandomSampler(train_idx)
         val_sampler = SubsetRandomSampler(val_idx)
         train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
