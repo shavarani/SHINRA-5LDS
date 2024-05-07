@@ -42,10 +42,14 @@ class TextClassificationDataset(Dataset):
         else:
             raise ValueError(f'Invalid language: {self.lang}')
 
+    @staticmethod
+    def convert_article_to_classification_input(article) -> str:
+        return article.title + ' ' + article.content.split("\n")[0] # takse this as a configurable parameter
+
     def __getitem__(self, idx):
         article, annotations = self.dataset[idx]
         inputs = self.tokenizer.encode_plus(
-            article.title + ' ' + article.content.split("\n")[0], # takse this as a configurable parameter
+            self.convert_article_to_classification_input(article),
             add_special_tokens=True,
             max_length=self.max_length,
             padding='max_length',
