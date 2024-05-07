@@ -6,6 +6,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 from transformers import AutoModel, AutoTokenizer
+from transformers.tokenization_utils_base import BatchEncoding
+from tokenizers import Tokenizer
 from sklearn.model_selection import KFold
 from sklearn.metrics import precision_score, recall_score, f1_score
 
@@ -20,6 +22,20 @@ ene_vocab = {
     3:  {'IGNORED': 0, 'Incident_Other': 1, 'Station': 2, 'CONCEPT': 3, 'Aircraft': 4, 'Government': 5, 'Company_Group': 6, 'Nature_Color': 7, 'Doctrine_Method_Other': 8, 'Printing_Other': 9, 'Public_Institution': 10, 'Element': 11, 'Drug': 12, 'ID_Number': 13, 'Market': 14, 'Region_Other': 15, 'Religion': 16, 'Broadcast_Program': 17, 'Date': 18, 'Geological_Region_Other': 19, 'Mountain': 20, 'Vehicle_Other': 21, 'Train': 22, 'Period_Day': 23, 'Natural_Object_Other': 24, 'Cabinet': 25, 'Music': 26, 'Fish': 27, 'Natural_Phenomenon_Other': 28, 'Ship': 29, 'Seismic_Intensity': 30, 'Sea': 31, 'Material': 32, 'Theory': 33, 'Bridge': 34, 'Airport': 35, 'Facility_Other': 36, 'Political_Party': 37, 'Name_Other': 38, 'Railroad': 39, 'Show_Organization': 40, 'Spaceship': 41, 'Movement': 42, 'Person': 43, 'Product_Other': 44, 'Reptile': 45, 'Canal': 46, 'Spa': 47, 'Style': 48, 'Rule_Other': 49, 'Disease_Other': 50, 'GPE_Other': 51, 'Earthquake': 52, 'Title_Other': 53, 'Museum': 54, 'Art_Other': 55, 'Province': 56, 'Mammal': 57, 'Organization_Other': 58, 'Animal_Part': 59, 'Currency': 60, 'Position_Vocation': 61, 'Mineral': 62, 'Flora': 63, 'Park': 64, 'National_Language': 65, 'River': 66, 'Amphibia': 67, 'Ethnic_Group_Other': 68, 'City': 69, 'Academic': 70, 'Bird': 71, 'Time': 72, 'Living_Thing_Part_Other': 73, 'Magazine': 74, 'Mollusc_Arthropod': 75, 'Compound': 76, 'Port': 77, 'Road': 78, 'County': 79, 'Award': 80, 'Car': 81, 'Continental_Region': 82, 'Book': 83, 'Periodx_Other': 84, 'Flora_Part': 85, 'Address_Other': 86, 'Tunnel': 87, 'Military': 88, 'Numex_Other': 89, 'Theater': 90, 'Latitude_Longtitude': 91, 'Language_Other': 92, 'Archaeological_Place_Other': 93, 'International_Organization': 94, 'Event_Other': 95, 'GOE_Other': 96, 'Research_Institute': 97, 'Clothing': 98, 'Plan': 99, 'Offence': 100, 'Percent': 101, 'Sports_Organization_Other': 102, 'Location_Other': 103, 'Service': 104, 'Ordinal_Number': 105, 'Domestic_Region': 106, 'Character': 107, 'Zoo': 108, 'Astral_Body_Other': 109, 'Star': 110, 'Decoration': 111, 'Animal_Disease': 112, 'Amusement_Park': 113, 'Movie': 114, 'Conference': 115, 'Measurement_Other': 116, 'Company': 117, 'Water_Route': 118, 'Worship_Place': 119, 'Occasion_Other': 120, 'Pro_Sports_Organization': 121, 'Game': 122, 'Sport': 123, 'Natural_Disaster': 124, 'Dish': 125, 'Constellation': 126, 'Corporation_Other': 127, 'Planet': 128, 'Color_Other': 129, 'Age': 130, 'Picture': 131, 'N_Person': 132, 'Facility_Part': 133, 'Newspaper': 134, 'Insect': 135, 'Sports_League': 136, 'Living_Thing_Other': 137, 'Food_Other': 138, 'Fungus': 139, 'Treaty': 140, 'Lake': 141, 'Car_Stop': 142, 'Island': 143, 'Culture': 144, 'Political_Organization_Other': 145, 'Country': 146, 'School': 147, 'Unit_Other': 148, 'Religious_Festival': 149, 'Line_Other': 150, 'God': 151, 'Era': 152, 'Weapon': 153, 'Show': 154, 'War': 155, 'Family': 156, 'Period_Year': 157, 'Money_Form': 158, 'Nationality': 159, 'Bay': 160, 'Sports_Facility': 161, 'Tumulus': 162, 'Law': 163}
 }
 
+class SHINRA5LDSTokenizer:
+    def __init__(self):
+        self.language_codes = {"ja": "<lang_ja>", "en": "<lang_en>", "fr": "<lang_fr>", "de": "<lang_de>", "fa": "<lang_fa>"}
+        self.tokenizer = Tokenizer.from_file("multilingual_tokenizer_with_lang.json")
+
+    def encode_plus(self, text, lang_code):
+        e = self.tokenizer.encode(self.language_codes[lang_code] + " " + text)
+        attention_mask = [1] * len(e.ids)
+        attention_mask_tensor = torch.tensor(attention_mask)
+        return BatchEncoding({
+            "tokens": e.tokens,
+            "input_ids": e.ids,
+            "attention_mask": attention_mask_tensor
+        })
 
 class TextClassificationDataset(Dataset):
     def __init__(self, tokenizer, max_length, lang):
