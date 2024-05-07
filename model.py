@@ -196,18 +196,22 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
     for level_id in range(4):
         avg_accuracy = np.mean(accuracies[level_id]) * 100
         std_accuracy = np.std(accuracies[level_id]) * 100
+        margin_of_error_accuracy = 2.576 * (std_accuracy / np.sqrt(len(accuracies[level_id]))) # 99% confidence interval
         avg_precision = np.mean(precisions[level_id]) * 100
         std_precision = np.std(precisions[level_id]) * 100
+        margin_of_error_precision = 2.576 * (std_precision / np.sqrt(len(precisions[level_id]))) # 99% confidence interval
         avg_recall = np.mean(recalls[level_id]) * 100
         std_recall = np.std(recalls[level_id]) * 100
+        margin_of_error_recall = 2.576 * (std_recall / np.sqrt(len(recalls[level_id]))) # 99% confidence interval
         avg_f1 = np.mean(f1_scores[level_id]) * 100
         std_f1 = np.std(f1_scores[level_id]) * 100
+        margin_of_error_f1 = 2.576 * (std_f1 / np.sqrt(len(f1_scores[level_id]))) # 99% confidence interval
         print('='*120)
         print(f'Level {level_id}:')
-        print(f'\tAverage Accuracy: {avg_accuracy:.2f}, Std: {std_accuracy:.2f}')
-        print(f'\tAverage Precision: {avg_precision:.2f}, Std: {std_precision:.2f}')
-        print(f'\tAverage Recall: {avg_recall:.2f}, Std: {std_recall:.2f}')
-        print(f'\tAverage F1-score: {avg_f1:.2f}, Std: {std_f1:.2f}')
+        print(f'\tAverage Accuracy: {avg_accuracy:.2f}±{margin_of_error_accuracy:.2f}')
+        print(f'\tAverage Precision: {avg_precision:.2f}±{margin_of_error_precision:.2f}')
+        print(f'\tAverage Recall: {avg_recall:.2f}±{margin_of_error_recall:.2f}')
+        print(f'\tAverage F1-score: {avg_f1:.2f}±{margin_of_error_f1:.2f}')
         print('='*120)
 
 
