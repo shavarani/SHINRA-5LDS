@@ -99,16 +99,7 @@ class Classifier(nn.Module):
         torch.cuda.empty_cache()
         self.transformer.load_state_dict(checkpoint["bert_lm"], strict=False)
         self.transformer.to(device)
-        self.disable_roberta_lm_head()
         self.transformer.eval()
-
-    def disable_roberta_lm_head(self):
-        assert self.transformer is not None
-        self.transformer.lm_head.layer_norm.bias.requires_grad = False
-        self.transformer.lm_head.layer_norm.weight.requires_grad = False
-        self.transformer.lm_head.dense.bias.requires_grad = False
-        self.transformer.lm_head.dense.weight.requires_grad = False
-        self.transformer.lm_head.decoder.bias.requires_grad = False
 
     def forward(self, input_ids, attention_mask):
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
