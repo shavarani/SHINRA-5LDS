@@ -82,7 +82,7 @@ class TextClassificationDataset(Dataset):
         attention_mask = inputs['attention_mask'].squeeze().to(device)
         return input_ids, attention_mask, *level_annotation_ids
     
-class Classifier(nn.Module):
+class PretrainedClassifier(nn.Module):
     def __init__(self, model_name, freeze_encoder=False, threshold=0.5, affine_mid_layer_size=256, load_pretrained_spel=False):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model_name)
@@ -146,7 +146,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
     for fold, (train_idx, val_idx) in enumerate(skf.split(range(len(dataset)))):
         print(f'Fold {fold+1}/{k_folds} ...')
         # Classifier must start fresh in each fold
-        classifier = Classifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=load_pretrained_spel).to(device)
+        classifier = PretrainedClassifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=load_pretrained_spel).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=lr)
         train_sampler = SubsetRandomSampler(train_idx)
         val_sampler = SubsetRandomSampler(val_idx)
