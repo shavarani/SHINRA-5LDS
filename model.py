@@ -38,11 +38,12 @@ class SHINRA5LDSTokenizer:
         })
 
 class TextClassificationDataset(Dataset):
-    def __init__(self, tokenizer, max_length, lang):
+    def __init__(self, tokenizer, max_length, lang, tokenizer_is_pretrained=True):
         self.dataset = list(tqdm(SHINRA5LDS('SHINRA-5LDS.zip', lang)))
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.lang = lang
+        self.tokenizer_is_pretrained = tokenizer_is_pretrained
 
     def __len__(self):
         if self.lang == 'ja':
@@ -64,14 +65,12 @@ class TextClassificationDataset(Dataset):
 
     def __getitem__(self, idx):
         article, annotations = self.dataset[idx]
-        inputs = self.tokenizer.encode_plus(
-            self.convert_article_to_classification_input(article),
-            add_special_tokens=True,
-            max_length=self.max_length,
-            padding='max_length',
-            truncation=True,
-            return_tensors='pt'
-        )
+        txt = self.convert_article_to_classification_input(article)
+        if self.tokenizer_is_pretrained:
+            inputs = self.tokenizer.encode_plus(txt, add_special_tokens=True, max_length=self.max_length,
+                                                padding='max_length', truncation=True, return_tensors='pt')
+        else:
+            inputs = self.tokenizer.encode_plus(txt, self.lang)
         level_annotation_ids = [torch.zeros(len(ene_vocab[0])).to(device), 
                                 torch.zeros(len(ene_vocab[1])).to(device), 
                                 torch.zeros(len(ene_vocab[2])).to(device), 
