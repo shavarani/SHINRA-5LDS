@@ -136,7 +136,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
     for fold, (train_idx, val_idx) in enumerate(skf.split(range(len(dataset)))):
         print(f'Fold {fold+1}/{k_folds} ...')
         # Classifier must start fresh in each fold
-        classifier = Classifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=False).to(device)
+        classifier = Classifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=load_pretrained_spel).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=lr)
         train_sampler = SubsetRandomSampler(train_idx)
         val_sampler = SubsetRandomSampler(val_idx)
@@ -217,4 +217,4 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
 
 
 if __name__ == '__main__':
-    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5, freeze_encoder=False)
+    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False)
