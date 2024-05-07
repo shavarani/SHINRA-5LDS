@@ -28,11 +28,11 @@ def train_tokenizer():
     tokenizer = Tokenizer(models.BPE())
     tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel()
     tokenizer.decoder = decoders.ByteLevel()
-    tokenizer.add_special_tokens(["<s>", "<pad>", "</s>", "<unk>", "<mask>", "<lang_jp>", "<lang_en>", "<lang_fr>", "<lang_de>", "<lang_fa>"])
+    tokenizer.add_special_tokens(["<s>", "<pad>", "</s>", "<unk>", "<mask>", "<lang_ja>", "<lang_en>", "<lang_fr>", "<lang_de>", "<lang_fa>"])
     language_codes = {"ja": "<lang_ja>", "en": "<lang_en>", "fr": "<lang_fr>", "de": "<lang_de>", "fa": "<lang_fa>"}
     def add_language_identifier(text, lang_code):
         return language_codes[lang_code] + " " + text
-    trainer = trainers.BpeTrainer(special_tokens=["<s>", "<pad>", "</s>", "<unk>", "<mask>", "<lang_jp>", "<lang_en>", "<lang_fr>", "<lang_de>", "<lang_fa>"])
+    trainer = trainers.BpeTrainer(special_tokens=["<s>", "<pad>", "</s>", "<unk>", "<mask>", "<lang_ja>", "<lang_en>", "<lang_fr>", "<lang_de>", "<lang_fa>"])
     tokenizer.train_from_iterator((add_language_identifier(line.strip(), lang) for lang in ["ja", "en", "fr", "de", "fa"]
                                    for line in open(f"path_to_{lang}_corpus.txt", "r", encoding="utf-8")), trainer=trainer)
     tokenizer.save("multilingual_tokenizer_with_lang.json")
