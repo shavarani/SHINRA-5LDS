@@ -163,6 +163,7 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
             precisions[level_id].append(precision)
             recalls[level_id].append(recall)
             f1_scores[level_id].append(f1)
+
     for level_id in range(4):
         avg_accuracy = np.mean(accuracies[level_id]) * 100
         std_accuracy = np.std(accuracies[level_id]) * 100
@@ -172,13 +173,15 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
         std_recall = np.std(recalls[level_id]) * 100
         avg_f1 = np.mean(f1_scores[level_id]) * 100
         std_f1 = np.std(f1_scores[level_id]) * 100
+        print('='*120)
         print(f'Level {level_id}:')
         print(f'\tAverage Accuracy: {avg_accuracy:.2f}, Std: {std_accuracy:.2f}')
         print(f'\tAverage Precision: {avg_precision:.2f}, Std: {std_precision:.2f}')
         print(f'\tAverage Recall: {avg_recall:.2f}, Std: {std_recall:.2f}')
         print(f'\tAverage F1-score: {avg_f1:.2f}, Std: {std_f1:.2f}')
+        print('='*120)
 
 
 
 if __name__ == '__main__':
-    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=1, membership_threshold=0.5, freeze_encoder=False)
+    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5, freeze_encoder=False)
