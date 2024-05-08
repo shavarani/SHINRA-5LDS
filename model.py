@@ -27,14 +27,18 @@ class SHINRA5LDSTokenizer:
         self.language_codes = {"ja": "<lang_ja>", "en": "<lang_en>", "fr": "<lang_fr>", "de": "<lang_de>", "fa": "<lang_fa>"}
         self.tokenizer = Tokenizer.from_file("multilingual_tokenizer_with_lang.json")
 
-    def encode_plus(self, text, lang_code):
+    @property
+    def vocab_size(self):
+        return self.tokenizer.get_vocab_size()
+
+    def encode_plus(self, text, lang_code, max_length):
         e = self.tokenizer.encode(self.language_codes[lang_code] + " " + text)
-        attention_mask = [1] * len(e.ids)
-        attention_mask_tensor = torch.tensor(attention_mask)
+        input_ids = e.ids + [1] * (max_length - len(e.ids))
+        attention_mask = [1] * len(e.ids) + [0] * (max_length - len(e.ids))
         return BatchEncoding({
             "tokens": e.tokens,
-            "input_ids": e.ids,
-            "attention_mask": attention_mask_tensor
+            "input_ids": torch.tensor(input_ids[:max_length]), # pad id is 1
+            "attention_mask": torch.tensor(attention_mask[:max_length]).float()
         })
 
 class TextClassificationDataset(Dataset):
@@ -70,7 +74,7 @@ class TextClassificationDataset(Dataset):
             inputs = self.tokenizer.encode_plus(txt, add_special_tokens=True, max_length=self.max_length,
                                                 padding='max_length', truncation=True, return_tensors='pt')
         else:
-            inputs = self.tokenizer.encode_plus(txt, self.lang)
+            inputs = self.tokenizer.encode_plus(txt, self.lang, max_length=self.max_length)
         level_annotation_ids = [torch.zeros(len(ene_vocab[0])).to(device), 
                                 torch.zeros(len(ene_vocab[1])).to(device), 
                                 torch.zeros(len(ene_vocab[2])).to(device), 
@@ -81,6 +85,33 @@ class TextClassificationDataset(Dataset):
         input_ids = inputs['input_ids'].squeeze().to(device)
         attention_mask = inputs['attention_mask'].squeeze().to(device)
         return input_ids, attention_mask, *level_annotation_ids
+
+class SelfTrainingClassifier(nn.Module):
+    def __init__(self, vocab_size, embedding_dim=256, threshold=0.5, affine_mid_layer_size=256):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embedding_dim, nhead=2, batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.affine_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(embedding_dim, affine_mid_layer_size),
+                nn.ReLU(),
+                nn.Linear(affine_mid_layer_size, len(ene_vocab[i])),
+            ) for i in range(4)
+        ])
+        self.threshold = threshold
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, input_ids, attention_mask):
+        x = self.embedding(input_ids)
+        outputs = self.transformer_encoder(src=x, src_key_padding_mask=attention_mask)
+        pooled_output = outputs[:, 0, :]
+        x = [layer(pooled_output) for layer in self.affine_layers]
+        return x
+
+    def inference(self, input_ids, attention_mask):
+        with torch.no_grad():
+            return [(self.sigmoid(x) > self.threshold).float() for x in self.forward(input_ids, attention_mask)]
     
 class PretrainedClassifier(nn.Module):
     def __init__(self, model_name, freeze_encoder=False, threshold=0.5, affine_mid_layer_size=256, load_pretrained_spel=False):
@@ -131,10 +162,13 @@ class PretrainedClassifier(nn.Module):
         with torch.no_grad():
             return [(self.sigmoid(x) > self.threshold).float() for x in self.forward(input_ids, attention_mask)]
 
-def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=10, lr=1e-5, batch_size=32, num_epochs=10, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False, train_from_scratch=False):
+    if train_from_scratch:
+        tokenizer = SHINRA5LDSTokenizer()
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
     print('Pre-loading dataset ...')
-    dataset = TextClassificationDataset(tokenizer, max_length, lang)
+    dataset = TextClassificationDataset(tokenizer, max_length, lang, tokenizer_is_pretrained=not train_from_scratch)
     skf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
     criterion = nn.BCEWithLogitsLoss()
 
@@ -146,7 +180,10 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
     for fold, (train_idx, val_idx) in enumerate(skf.split(range(len(dataset)))):
         print(f'Fold {fold+1}/{k_folds} ...')
         # Classifier must start fresh in each fold
-        classifier = PretrainedClassifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=load_pretrained_spel).to(device)
+        if train_from_scratch:
+            classifier = SelfTrainingClassifier(vocab_size=tokenizer.vocab_size, threshold=membership_threshold).to(device)
+        else:
+            classifier = PretrainedClassifier(model_name, freeze_encoder=freeze_encoder, threshold=membership_threshold, load_pretrained_spel=load_pretrained_spel).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=lr)
         train_sampler = SubsetRandomSampler(train_idx)
         val_sampler = SubsetRandomSampler(val_idx)
@@ -227,4 +264,4 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
 
 
 if __name__ == '__main__':
-    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False)
+    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False, train_from_scratch=True)
