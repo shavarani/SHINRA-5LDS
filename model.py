@@ -65,7 +65,8 @@ class TextClassificationDataset(Dataset):
 
     @staticmethod
     def convert_article_to_classification_input(article) -> str:
-        return article.title + ' ' + article.content.split("\n")[0] # takse this as a configurable parameter
+        # The following will look at as much of the content as fits into the max_length number of subwords.
+        return article.title + ' ' + article.content # .split("\n")[0] # takse this as a configurable parameter
 
     def __getitem__(self, idx):
         article, annotations = self.dataset[idx]
@@ -264,4 +265,4 @@ def cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=
 
 
 if __name__ == '__main__':
-    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=5, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False, train_from_scratch=True)
+    cross_valid(model_name = 'roberta-base', max_length=512, lang='en', k_folds=5, lr=1e-5, batch_size=32, num_epochs=15, membership_threshold=0.5, freeze_encoder=False, load_pretrained_spel=False, train_from_scratch=False)
